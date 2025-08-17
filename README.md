@@ -186,9 +186,7 @@ We welcome contributions! Please open an issue or submit a pull request for any 
 - **Sandboxed**: Runs with macOS App Sandbox for enhanced security
 - **Permission Based**: Only accesses folders you explicitly grant permission to
 
-## License
 
-This project is open source and available under the [MIT License](LICENSE).
 
 ## Support
 
