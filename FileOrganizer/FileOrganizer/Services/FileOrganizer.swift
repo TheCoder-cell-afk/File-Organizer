@@ -720,6 +720,25 @@ class FileOrganizer: ObservableObject {
     }
     
     // MARK: - Manual Organization
+
+    /// Organize a file dropped manually onto the app
+    func organizeDroppedFile(_ sourceURL: URL) {
+        organizeDroppedFile(at: sourceURL)
+    }
+
+    func organizeDroppedFile(at sourceURL: URL) {
+        let fileExtension = sourceURL.pathExtension.lowercased()
+        guard !fileExtension.isEmpty else {
+            print("⚠️ Cannot organize file with no extension: \(sourceURL.lastPathComponent)")
+            return
+        }
+
+        let fileType = FileType.from(fileExtension: fileExtension)
+        processingQueue.async { [weak self] in
+            self?.performFileMove(from: sourceURL, fileType: fileType)
+        }
+    }
+
     func organizeFile(_ log: ActivityLog) {
         guard log.action == .pending else { return }
         
