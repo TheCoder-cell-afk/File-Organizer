@@ -28,7 +28,7 @@ class FileOrganizer: ObservableObject {
     
     private var downloadsURL: URL {
         // Prefer absolute user Downloads path if accessible; fallback to sandbox container path
-        let absolutePath = "~/Downloads"
+        let absolutePath = NSString(string: "~/Downloads").expandingTildeInPath
         let absoluteURL = URL(fileURLWithPath: absolutePath)
         if FileManager.default.fileExists(atPath: absoluteURL.path) {
             return absoluteURL
@@ -281,7 +281,7 @@ class FileOrganizer: ObservableObject {
         }
     }
     
-    private func moveFile(from sourceURL: URL, fileType: FileType) {
+    private func moveFile(from sourceURL: URL, fileType: FileType, retryCount: Int = 3) {
         // Check if confirmation is required
         if preferences.confirmBeforeMoving {
             print("❓ Asking user for confirmation before moving: \(sourceURL.lastPathComponent)")
@@ -294,6 +294,15 @@ class FileOrganizer: ObservableObject {
         // Proceed with automatic move
         print("🚀 Automatically organizing: \(sourceURL.lastPathComponent) → \(fileType.rawValue)")
         performFileMove(from: sourceURL, fileType: fileType)
+
+        // Verify move succeeded, retry if file still exists
+        if FileManager.default.fileExists(atPath: sourceURL.path) && retryCount > 0 {
+            let delay = DispatchTime.now() + .seconds(1)
+            print("⏳ Retrying move in 1s (\(retryCount) retries left): \(sourceURL.lastPathComponent)")
+            processingQueue.asyncAfter(deadline: delay) { [weak self] in
+                self?.moveFile(from: sourceURL, fileType: fileType, retryCount: retryCount - 1)
+            }
+        }
     }
     
     private func performFileMove(from sourceURL: URL, fileType: FileType) {
@@ -711,6 +720,25 @@ class FileOrganizer: ObservableObject {
     }
     
     // MARK: - Manual Organization
+
+    /// Organize a file dropped manually onto the app
+    func organizeDroppedFile(_ sourceURL: URL) {
+        organizeDroppedFile(at: sourceURL)
+    }
+
+    func organizeDroppedFile(at sourceURL: URL) {
+        let fileExtension = sourceURL.pathExtension.lowercased()
+        guard !fileExtension.isEmpty else {
+            print("⚠️ Cannot organize file with no extension: \(sourceURL.lastPathComponent)")
+            return
+        }
+
+        let fileType = FileType.from(fileExtension: fileExtension)
+        processingQueue.async { [weak self] in
+            self?.performFileMove(from: sourceURL, fileType: fileType)
+        }
+    }
+
     func organizeFile(_ log: ActivityLog) {
         guard log.action == .pending else { return }
         
